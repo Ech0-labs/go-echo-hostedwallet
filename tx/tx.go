@@ -2,11 +2,14 @@ package tx
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/ltcsuite/ltcd/btcjson"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/rpcclient"
+	"github.com/ltcsuite/ltcd/wire"
 )
 
 type Inputs []btcjson.TransactionInput
@@ -38,6 +41,24 @@ func send(client *rpcclient.Client, tx *wire.MsgTx) (*chainhash.Hash, error) {
 	}
 
 	return client.SendRawTransaction(signedTx, false)
+}
+
+func MinRelayFees(client *rpcclient.Client, inputs Inputs, outputs Outputs, data []byte) (float64, error) {
+	rawTx, err := create(client, inputs, outputs, data)
+
+	if err != nil {
+		return 0.0, err
+	}
+
+	_, err = send(client, rawTx)
+
+	parts := strings.Split(err.Error(), " ")
+	minRelayFees, err := strconv.ParseFloat(parts[len(parts)-1], 64)
+	if err != nil {
+		return 0.0, err
+	}
+
+	return (minRelayFees + 1) / ltcutil.SatoshiPerBitcoin, nil
 }
 
 func Send(client *rpcclient.Client, inputs Inputs, outputs Outputs, data []byte) (*chainhash.Hash, error) {
