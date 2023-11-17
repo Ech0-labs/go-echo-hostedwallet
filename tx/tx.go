@@ -39,3 +39,12 @@ func send(client *rpcclient.Client, tx *wire.MsgTx) (*chainhash.Hash, error) {
 
 	return client.SendRawTransaction(signedTx, false)
 }
+
+func Send(client *rpcclient.Client, inputs Inputs, outputs Outputs, data []byte) (*chainhash.Hash, error) {
+	tx, err := create(client, inputs, outputs, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return send(client, tx)
+}
