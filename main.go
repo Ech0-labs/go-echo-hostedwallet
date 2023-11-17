@@ -26,12 +26,11 @@ func Handle(err error) {
 
 func main() {
 
-	err := godotenv.Load()
-	Handle(err)
+	Handle(godotenv.Load())
 
-	host := os.Getenv("HOST")
-	user := os.Getenv("USER")
-	pass := os.Getenv("PASS")
+	host := os.Getenv("RPC_HOST")
+	user := os.Getenv("RPC_USER")
+	pass := os.Getenv("RPC_PASS")
 
 	var conf = &rpcclient.ConnConfig{
 		Host:         host,
