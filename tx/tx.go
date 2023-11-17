@@ -27,6 +27,7 @@ func create(client *rpcclient.Client, inputs Inputs, outputs Outputs, data []byt
 	return tx, nil
 }
 
+func send(client *rpcclient.Client, tx *wire.MsgTx) (*chainhash.Hash, error) {
 	signedTx, ok, err := client.SignRawTransactionWithWallet(tx)
 	if err != nil {
 		return &chainhash.Hash{}, err
