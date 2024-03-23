@@ -17,7 +17,7 @@ func Consolidate(client *rpcclient.Client, addr string) error {
 	}
 
 	if len(utxo) < 2 {
-		return errors.New("Only 1 UTXO found")
+		return nil
 	}
 
 	amount := 0.0
@@ -47,7 +47,7 @@ func Consolidate(client *rpcclient.Client, addr string) error {
 	}
 
 	if !ok {
-		return errors.New("Error when signing tx")
+		return errors.New("error when signing tx")
 	}
 
 	hash, err := client.SendRawTransaction(signedTx, false)
