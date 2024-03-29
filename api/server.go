@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	echo "github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4"
 	"github.com/ltcsuite/ltcd/rpcclient"
 )
 
@@ -40,11 +40,17 @@ func InitFromEnv() (*Server, error) {
 	e.GET("/echo", GetEcho(e, client))
 	e.POST("/echo", PostEcho(e, client))
 
+	e.GET("/addrs", GetAddr(e, client))
+
 	port := os.Getenv("port")
+	if port == "" {
+		port = "8080"
+	}
 
 	fmt.Printf("Server listening on port %s\n", port)
 	address := fmt.Sprintf("localhost:%v", port)
 	fmt.Println(address)
+
 	go e.Logger.Fatal(e.Start(address))
 
 	return &Server{client, e}, nil
