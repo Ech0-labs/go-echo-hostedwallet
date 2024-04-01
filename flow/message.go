@@ -17,76 +17,96 @@ type Message struct {
 	Data      string
 }
 
-func ListMessages(client *rpcclient.Client) ([]Message, error) {
-	echoAddr := "ltc1qwewx5q6fwy6d0acuu3mk29cema4hkhew5afmsa"
-
+func getTxsFromAddr(client *rpcclient.Client, addr string) ([]string, error) {
 	addrs, err := client.ListReceivedByAddressIncludeEmpty(0, true)
 	if err != nil {
 		return nil, err
 	}
 
-	var addr *btcjson.ListReceivedByAddressResult
 	for i := range addrs {
-		if addrs[i].Address == echoAddr {
-			addr = &addrs[i]
+		if addrs[i].Address == addr {
+			return addrs[i].TxIDs, nil
 		}
 	}
 
-	if addr == nil {
-		return nil, errors.New("echo addr not found")
+	return nil, errors.New("addr not found")
+}
+
+func getRawTx(client *rpcclient.Client, strHash string) (*btcjson.TxRawResult, int64, error) {
+	hash, err := chainhash.NewHashFromStr(strHash)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	tx, err := client.GetTransaction(hash)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	byteSlice, err := hex.DecodeString(tx.Hex)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	rawTx, err := client.DecodeRawTransaction(byteSlice)
+	return rawTx, tx.BlockTime, nil
+}
+
+func getSender(client *rpcclient.Client, tx *btcjson.TxRawResult) (string, error) {
+	hash, err := chainhash.NewHashFromStr(tx.Vin[0].Txid)
+	if err != nil {
+		return "", err
+	}
+
+	txIn, err := client.GetTransaction(hash)
+	if err != nil {
+		return "", err
+	}
+
+	for _, out := range txIn.Details {
+		if out.Vout == tx.Vin[0].Vout {
+			return out.Address, nil
+		}
+	}
+
+	return "", errors.New("vout not found")
+}
+
+func getOpReturn(outs []btcjson.Vout) string {
+	for _, out := range outs {
+		if out.ScriptPubKey.Type == "nulldata" {
+			data := strings.TrimPrefix(out.ScriptPubKey.Asm, "OP_RETURN ")
+			msg, err := hex.DecodeString(data)
+			if err != nil {
+				continue
+			}
+			return string(msg)
+		}
+	}
+
+	return ""
+}
+
+func ListMessages(client *rpcclient.Client) ([]Message, error) {
+	txIds, err := getTxsFromAddr(client, echoAddr)
+	if err != nil {
+		return nil, err
 	}
 
 	var messages []Message
-	for _, txHash := range addr.TxIDs {
-		hash, err := chainhash.NewHashFromStr(txHash)
+	for _, txHash := range txIds {
+		rawTx, time, err := getRawTx(client, txHash)
 		if err != nil {
 			continue
 		}
 
-		tx, err := client.GetTransaction(hash)
+		addr, err := getSender(client, rawTx)
 		if err != nil {
 			continue
 		}
 
-		byteSlice, err := hex.DecodeString(tx.Hex)
-		if err != nil {
-			continue
-		}
-
-		decodedTx, err := client.DecodeRawTransaction(byteSlice)
-		if err != nil {
-			continue
-		}
-
-		var addr string
-
-		txInId := decodedTx.Vin[0].Txid
-		inHash, err := chainhash.NewHashFromStr(txInId)
-		if err != nil {
-			continue
-		}
-		txIn, err := client.GetTransaction(inHash)
-		if err != nil {
-			continue
-		}
-
-		for _, out := range txIn.Details {
-			if out.Vout == decodedTx.Vin[0].Vout {
-				addr = out.Address
-				break
-			}
-		}
-
-		for _, out := range decodedTx.Vout {
-			if out.ScriptPubKey.Type == "nulldata" {
-				data := strings.TrimPrefix(out.ScriptPubKey.Asm, "OP_RETURN ")
-				msg, err := hex.DecodeString(data)
-				if err != nil {
-					continue
-				}
-				messages = append(messages, Message{txHash, addr, tx.BlockTime, string(msg)})
-			}
-		}
+		msg := getOpReturn(rawTx.Vout)
+		messages = append(messages, Message{txHash, addr, time, msg})
 	}
 
 	return messages, nil
