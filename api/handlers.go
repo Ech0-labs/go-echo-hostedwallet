@@ -8,9 +8,14 @@ import (
 	"github.com/ltcsuite/ltcd/rpcclient"
 )
 
-func GetEcho(e *echo.Echo, client *rpcclient.Client) func(c echo.Context) error {
+func GetEchos(e *echo.Echo, client *rpcclient.Client) func(c echo.Context) error {
 	return func(c echo.Context) error {
-		return c.String(http.StatusOK, "GET /echos")
+		messages, err := flow.ListMessages(client)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+
+		return c.JSON(http.StatusOK, messages)
 	}
 }
 

@@ -37,8 +37,8 @@ func InitFromEnv() (*Server, error) {
 
 	e := echo.New()
 
-	e.GET("/echo", GetEcho(e, client))
 	e.POST("/echo", PostEcho(e, client))
+	e.GET("/echos", GetEchos(e, client))
 
 	e.GET("/addrs", GetAddr(e, client))
 
