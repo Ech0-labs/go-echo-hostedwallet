@@ -93,7 +93,7 @@ func getTime(client *rpcclient.Client, txHash string) (int64, error) {
 		return 0, err
 	}
 
-	return header.Timestamp.Unix(), nil
+	return header.Timestamp.UnixMilli(), nil
 }
 
 func getOpReturn(outs []btcjson.Vout) string {
