@@ -11,10 +11,10 @@ import (
 )
 
 type Message struct {
-	Tx        string
-	Addr      string
-	Timestamp int64
-	Data      string
+	Tx        string `json:"tx"`
+	Addr      string `json:"addr"`
+	Timestamp int64  `json:"timestamp"`
+	Data      string `json:"data"`
 }
 
 func getTxsFromAddr(client *rpcclient.Client, addr string) ([]string, error) {
@@ -32,24 +32,24 @@ func getTxsFromAddr(client *rpcclient.Client, addr string) ([]string, error) {
 	return nil, errors.New("addr not found")
 }
 
-func getRawTx(client *rpcclient.Client, strHash string) (*btcjson.TxRawResult, int64, error) {
+func getRawTx(client *rpcclient.Client, strHash string) (*btcjson.TxRawResult, error) {
 	hash, err := chainhash.NewHashFromStr(strHash)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	tx, err := client.GetTransaction(hash)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	byteSlice, err := hex.DecodeString(tx.Hex)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	rawTx, err := client.DecodeRawTransaction(byteSlice)
-	return rawTx, tx.BlockTime, nil
+	return rawTx, err
 }
 
 func getSender(client *rpcclient.Client, tx *btcjson.TxRawResult) (string, error) {
@@ -70,6 +70,30 @@ func getSender(client *rpcclient.Client, tx *btcjson.TxRawResult) (string, error
 	}
 
 	return "", errors.New("vout not found")
+}
+
+func getTime(client *rpcclient.Client, txHash string) (int64, error) {
+	hash, err := chainhash.NewHashFromStr(txHash)
+	if err != nil {
+		return 0, err
+	}
+
+	tx, err := client.GetTransaction(hash)
+	if err != nil {
+		return 0, err
+	}
+
+	blockHash, err := chainhash.NewHashFromStr(tx.BlockHash)
+	if err != nil {
+		return 0, err
+	}
+
+	header, err := client.GetBlockHeader(blockHash)
+	if err != nil {
+		return 0, err
+	}
+
+	return header.Timestamp.Unix(), nil
 }
 
 func getOpReturn(outs []btcjson.Vout) string {
@@ -95,7 +119,7 @@ func ListMessages(client *rpcclient.Client) ([]Message, error) {
 
 	var messages []Message
 	for _, txHash := range txIds {
-		rawTx, time, err := getRawTx(client, txHash)
+		rawTx, err := getRawTx(client, txHash)
 		if err != nil {
 			continue
 		}
@@ -106,6 +130,12 @@ func ListMessages(client *rpcclient.Client) ([]Message, error) {
 		}
 
 		msg := getOpReturn(rawTx.Vout)
+
+		time, err := getTime(client, rawTx.Txid)
+		if err != nil {
+			continue
+		}
+
 		messages = append(messages, Message{txHash, addr, time, msg})
 	}
 
